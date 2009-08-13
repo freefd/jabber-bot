@@ -38,13 +38,18 @@ sub juickDiff {
 	my $ua = LWP::UserAgent->new();
 	   $ua->agent($config{useragent});
 
-	if (-e "$config{paths}{subs_folder}$juickUser") {
+	my $response = myGET("http://juick.com/$juickUser/friends");
+
+	if (-e "$config{paths}{subs_folder}$juickUser" && $response !~ /^\d{3}/) {
 		open FILE, "$config{paths}{subs_folder}$juickUser" || return "Ошибка: $!";
 		my @oldSubs = <FILE>;
 		   chomp @oldSubs;
 		   @oldSubs = sort @oldSubs;
 		close FILE;
 		my @newSubs = sort split /\n/, _getSubscribers($juickUser);
+		print join ' ', @oldSubs;
+		print "\n";
+		print join ' ', @newSubs;
 
 		my ($oldSubs, $newSubs);
 		$md5->add($_) for @oldSubs;
@@ -71,13 +76,15 @@ sub juickDiff {
 			print FILE @newSubs;
 			close FILE;
 
-			$result = qq{=== subscribers difference ===\n\n@{[ join "\n", @diff ]}\n\n=== end of list ===};
+			$result .= qq{=== subscribers difference ===\n\n@{[ join "\n", @diff ]}\n\n=== end of list ===};
 		}
-	} else {
+	} elsif ($response !~ /^\d{3}/) {
 		open FILE, ">", "$config{paths}{subs_folder}$juickUser" || return "Ошибка: $!";
 		print FILE @{[ map { "$_\n" } sort split /\n/, _getSubscribers($juickUser) ]};
 		close FILE;
 		$result = "Это выглядит как первый запуск по данному пользователю.";
+	} else {
+		$result = $response =~ /^404/ ? "Ошибка: Пользователь не найден." : "Ошибка: $response.";
 	}
 	$result;
 }
@@ -89,6 +96,7 @@ sub _getSubscribers {
 	if ($response !~ /^\d{3}/) {
 		$response =~ s{\n}{}gi;
 		my $div = $1 if $response =~ /My readers \(\d+\)(.+?)<\/p>/s;
+		$div =~ s{a><a}{a>, <a}g;
 		$div =~ s{(,\s+|<br/>)}{\n}g;
 		$div =~ s{<.+?>}{}gi;
 		$div;

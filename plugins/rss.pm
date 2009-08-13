@@ -20,18 +20,31 @@ my %config = (
 	functions => {
 					bash => 'http://bash.org.ru/rss/',
 					ibash => 'http://ibash.org.ru/rss.xml',
+					ithappens => 'http://ithappens.ru/rss/',
 				 },
 
 	events => {
 				bash => '^\.(?:б|b)$',
 				ibash => '^\.(?:й|i)$',
+				ithappens => '^\.(?:их|ih)$',
 			  },
 
-	count => 15,
+	encodings => {
+				bash => 'utf8',
+				ibash => 'utf8',
+				ithappens => 'utf8',
+			  },
+
+	counts => {
+				bash => 15,
+				ibash => 15,
+				ithappens => 5,
+			  },
 
 	help => {
 				bash => ".b или .б - последние 15 постов bash.org.ru.",
 				ibash => '.i или .й - последние 15 постов ibash.org.ru.',
+				ithappens => '.ih или .их - последние 5 постов ithappens.ru.',
 			},
 
 	paths => {
@@ -69,9 +82,10 @@ sub getRSS {
 		my $i = 0;
 		foreach my $item ( @{ $rssObj->{items} } ) {
 			$item->{description} =~ s{<br\s?\/?>\n?}{\n}gi;
+			$item->{description} =~ s{<[^>]*>}{}gi;
 			$result .= " $item->{title} \n$item->{description}\n\n";
 			$i++;
-			last if $i >= $config{count}-1;
+			last if $i >= $config{counts}{$hash{$stream}};
 		}
 		$result .= "via " . (uri_split($stream))[1];
 	}
@@ -97,9 +111,10 @@ sub cache {
 		my $i = 0;
 		foreach my $item ( @{ $rssObj->{items} } ) {
 			$item->{description} =~ s{<br\s?\/?>\n?}{\n}gi;
+			$item->{description} =~ s{<[^>]*>}{}gi;
 			$result .= " $item->{title} \n$item->{description}\n\n";
 			$i++;
-			last if $i >= $config{count}-1;
+			last if $i >= $config{counts}{$key};
 		}
 		$result .= "via " . (uri_split($config{functions}{$key}))[1];
 

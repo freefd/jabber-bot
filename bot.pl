@@ -8,17 +8,33 @@ use utf8;
 use Module::Find;
 use Module::Load;
 use Time::HiRes;
+use FindBin qw($Bin);
 
 my (%events, @help);
 
-my %config = (
-			ownerJID => 'username@server.tld',
-			hostname => 'server.tld',
-			username => 'botname',
-			password => 'password',
-			resource => 'bot',
-			status	 => 'chat',
+my %config;
+
+my @configs = (
+    "$Bin/wbot.conf",
+    $ENV{HOME} . '/.config/wbot/wbot.conf',
+    '/etc/wbot.conf',
 );
+
+foreach my $config (@configs) {
+	if (-e $config && -f $config && -r $config) {
+		open CONFIG, "<", $config || die $!;
+		flock CONFIG, 2;
+		while (<CONFIG>){
+			chomp;
+			s/#.*//;  s/^\s+//;
+			s/\s+$//; s/\[.*\]//;
+			next unless length;
+			my ($var, $value) = split /\s*=\s*/, $_, 2;
+			$config{$var} = $value;
+		}
+		close CONFIG;
+	}
+}
 
 die "%config is empty" if $config{ownerJID} eq '' || $config{hostname} eq '' || $config{username} eq '' || $config{password} eq '';
 
