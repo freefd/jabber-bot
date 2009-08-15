@@ -38,7 +38,7 @@ sub juickDiff {
 	my $ua = LWP::UserAgent->new();
 	   $ua->agent($config{useragent});
 
-	my $response = myGET("http://juick.com/$juickUser/friends");
+	my $response = myGET("http://juick.com/$juickUser/readers");
 
 	if (-e "$config{paths}{subs_folder}$juickUser" && $response !~ /^\d{3}/) {
 		open FILE, "$config{paths}{subs_folder}$juickUser" || return "Ошибка: $!";
@@ -47,9 +47,6 @@ sub juickDiff {
 		   @oldSubs = sort @oldSubs;
 		close FILE;
 		my @newSubs = sort split /\n/, _getSubscribers($juickUser);
-		print join ' ', @oldSubs;
-		print "\n";
-		print join ' ', @newSubs;
 
 		my ($oldSubs, $newSubs);
 		$md5->add($_) for @oldSubs;
@@ -92,10 +89,10 @@ sub juickDiff {
 
 sub _getSubscribers {
 	my $juickUser = shift;
-	my $response = myGET("http://juick.com/$juickUser/friends");
+	my $response = myGET("http://juick.com/$juickUser/readers");
 	if ($response !~ /^\d{3}/) {
 		$response =~ s{\n}{}gi;
-		my $div = $1 if $response =~ /My readers \(\d+\)(.+?)<\/p>/s;
+		my $div = $1 if $response =~ /My readers \(\d+\)<\/h2><p>(.+?)<\/p>/s;
 		$div =~ s{a><a}{a>, <a}g;
 		$div =~ s{(,\s+|<br/>)}{\n}g;
 		$div =~ s{<.+?>}{}gi;
