@@ -32,21 +32,21 @@ sub myINIT {
 sub cache {}
 
 sub juickDiff {
-	my ($self, $juickUser) = @_;
+	my %args = (@_);
 	my $result;
 	my $md5 = Digest::MD5->new;
 	my $ua = LWP::UserAgent->new();
 	   $ua->agent($config{useragent});
 
-	my $response = myGET("http://juick.com/$juickUser/readers");
+	my $response = myGET("http://juick.com/$args{saved1}/readers");
 
-	if (-e "$config{paths}{subs_folder}$juickUser" && $response !~ /^\d{3}/) {
-		open FILE, "$config{paths}{subs_folder}$juickUser" || return "Ошибка: $!";
+	if (-e "$config{paths}{subs_folder}$args{saved1}" && $response !~ /^\d{3}/) {
+		open FILE, "$config{paths}{subs_folder}$args{saved1}" || return "Ошибка: $!";
 		my @oldSubs = <FILE>;
 		   chomp @oldSubs;
 		   @oldSubs = sort @oldSubs;
 		close FILE;
-		my @newSubs = sort split /\n/, _getSubscribers($juickUser);
+		my @newSubs = sort split /\n/, _getSubscribers($args{saved1});
 
 		my ($oldSubs, $newSubs);
 		$md5->add($_) for @oldSubs;
@@ -69,15 +69,15 @@ sub juickDiff {
 			$diff =~ s{^(?:\-{3}|\+{3}|\@{2}|\s).+?\n}{}gim;
 			my @diff = sort split /\n/, $diff;
 
-			open FILE, ">", "$config{paths}{subs_folder}$juickUser" || return "Ошибка: $!";
+			open FILE, ">", "$config{paths}{subs_folder}$args{saved1}" || return "Ошибка: $!";
 			print FILE @newSubs;
 			close FILE;
 
 			$result .= qq{=== subscribers difference ===\n\n@{[ join "\n", @diff ]}\n\n=== end of list ===};
 		}
 	} elsif ($response !~ /^\d{3}/) {
-		open FILE, ">", "$config{paths}{subs_folder}$juickUser" || return "Ошибка: $!";
-		print FILE @{[ map { "$_\n" } sort split /\n/, _getSubscribers($juickUser) ]};
+		open FILE, ">", "$config{paths}{subs_folder}$args{saved1}" || return "Ошибка: $!";
+		print FILE @{[ map { "$_\n" } sort split /\n/, _getSubscribers($args{saved1}) ]};
 		close FILE;
 		$result = "Это выглядит как первый запуск по данному пользователю.";
 	} else {

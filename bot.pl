@@ -20,7 +20,7 @@ my @configs = (
     '/etc/wbot.conf',
 );
 
-foreach my $config (@configs) {
+foreach my $config (sort @configs) {
 	if (-e $config && -f $config && -r $config) {
 		open CONFIG, "<", $config || die $!;
 		flock CONFIG, 2;
@@ -33,6 +33,7 @@ foreach my $config (@configs) {
 			$config{$var} = $value;
 		}
 		close CONFIG;
+		last;
 	}
 }
 
@@ -90,7 +91,7 @@ sub messageChatCB {
 		accessLog($body, $senderJID, $senderResource);
 		if (length > 1 && substr($_, 0, 1) eq ".") {
 			foreach my $key (keys %events) {
-				if (/$key/i) {
+				if (/$key/is) {
 					$reply = $events{$key}->(
 											saved1 => $1,
 											saved2 => $2,
