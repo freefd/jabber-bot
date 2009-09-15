@@ -1,14 +1,16 @@
 #!/usr/bin/perl
-
 use strict;
-use warnings;
-use Net::XMPP;
-use Net::Ping;
 use utf8;
+use AnyEvent;
+use AnyEvent::XMPP::Client;
+use AnyEvent::XMPP::Util qw/split_jid/;
+use Net::Ping;
 use Module::Find;
 use Module::Load;
 use Time::HiRes;
 use FindBin qw($Bin);
+
+binmode STDOUT, ":utf8";
 
 my (%events, @help);
 
@@ -50,109 +52,89 @@ sub registerHelp {
     push @help, shift;
 }
 
-my $clientObj = new Net::XMPP::Client(debuglevel => 0);
+my $j = AnyEvent->condvar;
+my $clientObj = AnyEvent::XMPP::Client->new (debug => 0);
+$clientObj->add_account($config{username} . '@' . $config{hostname} . '/' . $config{resource}, $config{password});
+$clientObj->reg_cb(
 
-$clientObj->SetCallBacks(
-			onauth => \&onAuth,
-		);
+	session_ready => sub {
+		my ($client, $acc) = @_;
+		$client->set_presence('chat', undef, 10);
+	},
 
-$clientObj->SetMessageCallBacks(
-			chat => \&messageChatCB,
-		);
+	contact_request_subscribe => sub {
+		my ($client, $acc, $roster, $contact) = @_;
+		$contact->send_subscribed;
+		$contact->send_subscribe;
+	},
 
-$clientObj->Execute(
-					hostname => $config{hostname},
-					username => $config{username},
-					password => $config{password},
-					resource => $config{resource},
-			);
+	contact_subscribed => sub {
+		my ($client, $acc, $roster, $contact ) = @_;
+		$client->send_message("\n@{[ join qq{\n}, @help ]}" => $contact->jid, undef, 'chat');
+	},
 
-$clientObj->Disconnect();
+	disconnect => sub {
+		my ($client, $acc, $h, $p, $reas) = @_;
+		#print "disconnect ($h:$p): $reas\n";
+		$j->broadcast;
+   },
 
-sub onAuth {
-		$clientObj->PresenceSend(
-								 show		=> $config{status},
-								 priority	=> 10,
-								);
-}
+   error => sub {
+		my ($client, $acc, $err) = @_;
+		#print "ERROR: " . $err->string . "\n";
+   },
 
-sub messageChatCB {
-    my ($sid,$mes) = @_;
-    my $sender=$mes->GetFrom();
-    my $body=$mes->GetBody();
-    my $thread=$mes->GetThread();
-    my $JID = new Net::XMPP::JID($sender);
-
-    my $senderJID=$JID->GetJID("base");
-	my $senderResource=$JID->GetResource();
-    my $reply='';
-
-	for ($body) {
-		accessLog($body, $senderJID, $senderResource);
-		if (length > 1 && substr($_, 0, 1) eq ".") {
-			foreach my $key (keys %events) {
-				if (/$key/is) {
-					$reply = $events{$key}->(
-											saved1 => $1,
-											saved2 => $2,
-											saved3 => $3,
-											senderJID => $senderJID,
-											senderResource => $senderResource,
-											ownerJID => $config{ownerJID},
-										);
-					last;
+   message => sub {
+		my ($client, $acc, $msg) = @_;
+		my ($userName, $hostName, $senderResource) = split_jid($msg->from);
+		my $reply='';
+		for ($msg->any_body) {
+			accessLog($msg->any_body, $userName . '@' . $hostName, $senderResource) if $msg->any_body ne '';
+			if (length > 1 && substr($_, 0, 1) eq ".") {
+				foreach my $key (keys %events) {
+					if (/$key/is) {
+						$reply = $events{$key}->(
+									saved1 => $1,
+									saved2 => $2,
+									saved3 => $3,
+									senderJID => $userName . '@' . $hostName,
+									senderResource => $senderResource,
+									ownerJID => $config{ownerJID},
+								  );
+						last;
+					}
 				}
-			}
-		} else {
-			$reply = "\n" . join "\n", @help if /^(?:\.?help|\?|хелп|\.h)/i;
+			} else {
+				$reply = "\n" . join "\n", @help if /^(?:\.?help|\?|хелп|\.h)/i;
 
-			if (/^(?:exit|quit)$/i) {
-				if ($senderJID eq $config{ownerJID}) {
-                	$clientObj->Disconnect();
-                	exit;
-                } else {
-                	$reply = "Я не знаю Вас.";
+				if (/^(?:exit|quit)$/i) {
+					if ($config{ownerJID} eq $userName . '@' . $hostName) {
+						$clientObj->disconnect;
+						exit;
+					} else {
+						$reply = "Я не знаю Вас.";
+					}
 				}
-			}
 
-			if (/^ping\s+([0-9a-z.]+)$/i) {
-				my $host = $1;
-				my ($ret, $duration, $ip);
-				my $p = Net::Ping->new("syn");
+				if (/^ping\s+([0-9a-z.]+)$/i) {
+					my $host = $1;
+					my ($ret, $duration, $ip);
+					my $pingObj = Net::Ping->new("syn");
 
-				$p->hires();
-				($ret, $duration, $ip) = $p->ping($host);
-				if ($ret) {
-					$reply = sprintf("$host [ip: $ip] is alive (packet return time: %.2f ms)", 1000 * $duration);
-				} else {
-					$reply = "Не получается.";
+					$pingObj->hires();
+					($ret, $duration, $ip) = $pingObj->ping($host);
+					if ($ret) {
+						$reply = sprintf("$host [ip: $ip] is alive (packet return time: %.2f ms)", 1000 * $duration);
+					} else {
+						$reply = "Не получается.";
+					}
+					$pingObj->close();
 				}
-    			$p->close();
 			}
 		}
+		$client->send_message($reply => $msg->from, undef, 'chat');
 	}
+);
 
-	$reply && $clientObj->MessageSend(
-		to=>$sender,
-		subject=>"",
-		body=> $reply,
-		type => 'chat',
-		thread => $thread,
-	);
-}
-
-__END__
-
-=head1 AUTHOR
-
-Fd <fd@freefd.info> L<http://freefd.info/>
-
-=head1 COPYRIGHT
-
-Copyright (c) <2009> <Fd>
-
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
-
-
-=cut
+$clientObj->start;
+$j->wait;
