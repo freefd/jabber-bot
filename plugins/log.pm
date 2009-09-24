@@ -26,7 +26,7 @@ sub cache {}
 sub accessLog {
 	my ($string, $JID, $resource) = @_;
 	#     0    1    2     3     4    5
-    my ($sec,$min,$hour,$mday,$mon,$year) = (localtime(time))[0..5];
+	my ($sec,$min,$hour,$mday,$mon,$year) = (localtime(time))[0..5];
 	my @abbr = qw( Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec );
 	$year += 1900;
 

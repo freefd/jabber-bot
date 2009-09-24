@@ -1,7 +1,7 @@
 package plugins::rss;
 
 use strict;
-use warnings;
+no warnings;
 use Exporter;
 use HTML::Entities;
 use XML::RSS;
@@ -18,33 +18,28 @@ $VERSION = '0.02';
 
 my %config = (
 	functions => {
-					bash => 'http://bash.org.ru/rss/',
-					ibash => 'http://ibash.org.ru/rss.xml',
-					ithappens => 'http://ithappens.ru/rss/',
-				 },
+				bash => 'http://bash.org.ru/rss/',
+				ibash => 'http://ibash.org.ru/rss.xml',
+			  },
 
 	events => {
 				bash => '^\.(?:б|b)$',
 				ibash => '^\.(?:й|i)$',
-				ithappens => '^\.(?:их|ih)$',
 			  },
 
 	encodings => {
 				bash => 'utf8',
 				ibash => 'utf8',
-				ithappens => 'utf8',
 			  },
 
 	counts => {
 				bash => 15,
 				ibash => 15,
-				ithappens => 5,
 			  },
 
 	help => {
 				bash => ".b или .б - последние 15 постов bash.org.ru.",
 				ibash => '.i или .й - последние 15 постов ibash.org.ru.',
-				ithappens => '.ih или .их - последние 5 постов ithappens.ru.',
 			},
 
 	paths => {
@@ -78,7 +73,7 @@ sub getRSS {
 		$result .= "\ncached at " . sprintf "%02u/%02u/%02u %02u:%02u:%02u",  $t[3], $t[4] + 1, $t[5] % 100, $t[2], $t[1], $t[0];
 	} else {
 		my $rssObj = new XML::RSS;
-		$rssObj->parse(decode_entities myGET($stream)) || die $!;
+		$rssObj->parse(decode_entities myGET($stream)) || die "$stream -> $!";
 		my $i = 0;
 		foreach my $item ( @{ $rssObj->{items} } ) {
 			$item->{description} =~ s{<br\s?\/?>\n?}{\n}gi;
@@ -107,7 +102,7 @@ sub cache {
 	foreach my $key (keys %{$config{functions}} ) {
 		my $result = "\n";
 		my $rssObj = new XML::RSS;
-		$rssObj->parse(decode_entities myGET($config{functions}{$key})) || die $!;
+		$rssObj->parse(decode_entities myGET($config{functions}{$key})) || die "$config{functions}{$key} -> $!";
 		my $i = 0;
 		foreach my $item ( @{ $rssObj->{items} } ) {
 			$item->{description} =~ s{<br\s?\/?>\n?}{\n}gi;

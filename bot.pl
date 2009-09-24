@@ -52,6 +52,8 @@ sub registerHelp {
     push @help, shift;
 }
 
+registerHelp('.h, .help, help, ? или хелп - покажет справку по командам.');
+
 my $j = AnyEvent->condvar;
 my $clientObj = AnyEvent::XMPP::Client->new (debug => 0);
 $clientObj->add_account($config{username} . '@' . $config{hostname} . '/' . $config{resource}, $config{password});
@@ -70,7 +72,7 @@ $clientObj->reg_cb(
 
 	contact_subscribed => sub {
 		my ($client, $acc, $roster, $contact ) = @_;
-		$client->send_message("\n@{[ join qq{\n}, @help ]}" => $contact->jid, undef, 'chat');
+		$client->send_message("\n@{[ join qq{\n}, sort @help ]}" => $contact->jid, undef, 'chat');
 	},
 
 	disconnect => sub {
@@ -91,6 +93,7 @@ $clientObj->reg_cb(
 		for ($msg->any_body) {
 			accessLog($msg->any_body, $userName . '@' . $hostName, $senderResource) if $msg->any_body ne '';
 			if (length > 1 && substr($_, 0, 1) eq ".") {
+
 				foreach my $key (keys %events) {
 					if (/$key/is) {
 						$reply = $events{$key}->(
@@ -104,9 +107,11 @@ $clientObj->reg_cb(
 						last;
 					}
 				}
-			} else {
-				$reply = "\n" . join "\n", @help if /^(?:\.?help|\?|хелп|\.h)/i;
+				$reply = "\n" . join "\n", sort @help if /^(?:\.h|\.help)/i;
 
+			} else {
+
+				$reply = "\n" . join "\n", sort @help if /^(?:help|хелп)/i;
 				if (/^(?:exit|quit)$/i) {
 					if ($config{ownerJID} eq $userName . '@' . $hostName) {
 						$clientObj->disconnect;

@@ -25,8 +25,8 @@ my %config = (
 );
 
 sub myINIT {
-	main::registerEvent('^\.(?:d|д)\s+\*(.+?)\s+(.+)$', \&dumpz);
-	main::registerHelp('.d dump_text или .д код');
+	main::registerEvent('^\.(?:d|д)(?:\s+\*(.+?))?\s+(.+)$', \&dumpz);
+	main::registerHelp('.d *lexer dump_text или .д *язык код - выгрузит код на dumpz.org и вернёт ссылку на него.');
 }
 
 sub cache {}
@@ -38,7 +38,7 @@ sub dumpz {
 	$lwp->timeout(40);
 	my $request = POST "$config{URI}",
 					[
-								'lexer'	=> $args{saved1},
+								'lexer'	=> $args{saved1} || '',
 								'code'	=> $args{saved2},
 								'comment' => '',
 					];

@@ -25,7 +25,7 @@ my %config = (
 
 sub myINIT {
 	main::registerEvent('^\.(?:жд|jd)\s+(.+)$', \&juickDiff);
-	main::registerHelp(".jd или .жд - juickdiff.");
+	main::registerHelp(".jd username или .жд пользователь - juickdiff для указанного пользователя.");
 }
 
 
@@ -37,6 +37,8 @@ sub juickDiff {
 	my $md5 = Digest::MD5->new;
 	my $ua = LWP::UserAgent->new();
 	   $ua->agent($config{useragent});
+
+	   $args{saved1} = lc $args{saved1};
 
 	my $response = myGET("http://juick.com/$args{saved1}/readers");
 
